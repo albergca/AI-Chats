@@ -1,4 +1,4 @@
-name: Android CI (AI Consciousness)
+name: Android CI (auto-detect)
 
 on:
   workflow_dispatch:
@@ -9,45 +9,132 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      # GitHub runners already define ANDROID_SDK_ROOT; keep it explicit.
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      # Detect app module, compileSdk, AGP → JDK, and build-tools
+      - name: Detect Android project settings
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # 1) Detect application module (first module with com.android.application)
+          APP_MODULE=$(grep -RIl --include='build.gradle*' 'com\.android\.application' . \
+            | sed 's|^\./||' | sed 's|/build\.gradle.*$||' | sort | head -n1)
+          if [[ -z "${APP_MODULE}" ]]; then
+            # Fallback to 'app' if not found
+            if [[ -d app ]]; then APP_MODULE="app"; else APP_MODULE="."; fi
+          fi
+
+          # 2) Detect compileSdk (Groovy or Kotlin DSL)
+          #   Handles: compileSdk 34  OR  compileSdkVersion 34
+          COMPILE_SDK=$(grep -Rho --include='build.gradle*' \
+            -E 'compileSdk(version)?\s*[=:]\s*[0-9]+' "${APP_MODULE}" 2>/dev/null \
+            | grep -Eo '[0-9]+' | head -n1 || true)
+          if [[ -z "${COMPILE_SDK}" ]]; then COMPILE_SDK=34; fi
+
+          # 3) Detect Android Gradle Plugin (AGP) version to choose JDK
+          #   Looks in module and root build files (Groovy/KTS), and Gradle libs catalog if present
+          AGP=$(grep -Rho --include='build.gradle*' \
+                -E 'com\.android\.tools\.build:gradle[: ]+[0-9]+\.[0-9]+(\.[0-9]+)?' . 2>/dev/null \
+                | head -n1 | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' || true)
+          if [[ -z "${AGP}" && -f gradle/libs.versions.toml ]]; then
+            AGP=$(grep -E 'agp[^=]*=' gradle/libs.versions.toml | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || true)
+          fi
+
+          # Choose JDK: AGP >= 8.5 → JDK 21, else JDK 17
+          JDK_VER=17
+          if [[ -n "${AGP}" ]]; then
+            AGP_MAJOR=$(echo "${AGP}" | cut -d. -f1)
+            AGP_MINOR=$(echo "${AGP}" | cut -d. -f2)
+            if (( AGP_MAJOR > 8 )) || (( AGP_MAJOR == 8 && AGP_MINOR >= 5 )); then
+              JDK_VER=21
+            fi
+          fi
+
+          # 4) Choose build-tools version to match compileSdk (best-effort)
+          case "${COMPILE_SDK}" in
+            35) BUILD_TOOLS="35.0.0" ;;
+            34) BUILD_TOOLS="34.0.0" ;;
+            *)  BUILD_TOOLS="34.0.0" ;; # sensible default
+          esac
+
+          # Outputs
+          {
+            echo "app_module=${APP_MODULE}"
+            echo "compile_sdk=${COMPILE_SDK}"
+            echo "build_tools=${BUILD_TOOLS}"
+            echo "jdk=${JDK_VER}"
+            echo "agp=${AGP:-unknown}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Detected:"
+          echo "  APP_MODULE=${APP_MODULE}"
+          echo "  COMPILE_SDK=${COMPILE_SDK}"
+          echo "  BUILD_TOOLS=${BUILD_TOOLS}"
+          echo "  AGP=${AGP:-unknown}"
+          echo "  JDK=${JDK_VER}"
+
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.detect.outputs.jdk }}
           cache: gradle
 
-      # Install/upgrade cmdline-tools first using the existing sdkmanager (16.0)
-      - name: Install cmdline-tools;latest
+      # Install cmdline-tools standalone (avoids action parsing issues)
+      - name: Install Android cmdline-tools (latest)
+        shell: bash
         run: |
-          set -e
-          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/16.0/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "cmdline-tools;latest"
+          set -euxo pipefail
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          cd "${ANDROID_SDK_ROOT}/cmdline-tools"
+          curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          rm cmdline-tools.zip
+          # Ensure the folder name is exactly 'latest'
+          if [ -d "cmdline-tools" ]; then mv cmdline-tools latest; fi
+          echo "Installed cmdline-tools to ${ANDROID_SDK_ROOT}/cmdline-tools/latest"
 
-      # Now use the latest sdkmanager to install the rest, each as its own arg
-      - name: Install platform-tools, platform & build-tools
+      # Install required SDK packages (one per call)
+      - name: Install SDK packages
+        shell: bash
         run: |
-          set -e
-          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools"
-          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platforms;android-34"
-          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "build-tools;34.0.0"
+          set -euxo pipefail
+          SDKM="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools"
+          yes | "$SDKM" --sdk_root="${ANDROID_SDK_ROOT}" "platforms;android-${{ steps.detect.outputs.compile_sdk }}"
+          yes | "$SDKM" --sdk_root="${ANDROID_SDK_ROOT}" "build-tools;${{ steps.detect.outputs.build_tools }}"
 
-      - name: Accept licenses (belt-and-suspenders)
-        run: yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --licenses
+      - name: Accept SDK licenses
+        run: yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses
 
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK (wrapper)
+      - name: Build Debug APK
         run: ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ai-consciousness-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: android-debug-apk
+          # Try the detected module first, then common fallbacks
+          path: |
+            ${{ steps.detect.outputs.app_module }}/build/outputs/**/apk/debug/*-debug.apk
+            app/build/outputs/**/apk/debug/*-debug.apk
+            */build/outputs/**/apk/debug/*-debug.apk
+
+      # On failure, print quick diagnostics
+      - name: Diagnose SDK (on failure)
+        if: failure()
+        run: |
+          set -x
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
+          ls -la "${ANDROID_SDK_ROOT}/cmdline-tools" || true
+          ls -la "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" || true
+          "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --list | head -n 200 || true
