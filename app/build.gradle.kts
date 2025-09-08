@@ -50,3 +50,6 @@ dependencies {
   implementation("androidx.datastore:datastore-preferences:1.1.1")
   implementation("androidx.compose.material:material-icons-extended")
 }
+kotlin {
+    jvmToolchain(17)
+}
