@@ -14,7 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.padding  // ← needed
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -26,6 +26,7 @@ fun NavScaffold(nav: NavHostController, content: @Composable () -> Unit) {
   Scaffold(
     topBar = { CenterAlignedTopAppBar(title = { Text("AI Consciousness") }) },
     bottomBar = {
+      // Use literal to avoid enum scoping hiccup
       if (route != "setup") {
         NavigationBar {
           NavigationBarItem(
