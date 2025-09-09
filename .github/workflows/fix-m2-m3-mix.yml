@@ -1,0 +1,50 @@
+name: Patch — Remove Material2 imports from Material3 files
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch_m2_m3_mix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove Material2 imports from files that also import Material3
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Scanning for files that import material3…"
+          files=$(rg -l 'import androidx\.compose\.material3' app/src || true)
+          if [[ -z "${files}" ]]; then
+            echo "No material3 files found; nothing to patch."
+            exit 0
+          fi
+          echo "Patching files:"
+          echo "${files}"
+          # Remove any androidx.compose.material.* import lines from those files
+          while IFS= read -r f; do
+            if rg -q 'import androidx\.compose\.material\.' "$f"; then
+              echo "Purging Material2 imports from $f"
+              sed -i '/^import androidx\.compose\.material\./d' "$f"
+            fi
+          done <<< "$files"
+
+      - name: Commit & push patch
+        shell: bash
+        run: |
+          set -eux
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No changes after patch."
+          else
+            git add -A
+            git commit -m "Patch: remove Material2 imports from M3 files (fix guard)"
+            git push
+          fi
