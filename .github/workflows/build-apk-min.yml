@@ -1,0 +1,91 @@
+name: Build APK — Minimal (no scaffolding, no guards)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_min:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Install Android cmdline-tools (latest)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          cd "${ANDROID_SDK_ROOT}/cmdline-tools"
+          curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          rm cmdline-tools.zip
+          # Normalize to .../cmdline-tools/latest
+          if [ -d "cmdline-tools" ]; then mv cmdline-tools latest; fi
+
+      - name: Accept SDK licenses
+        shell: bash
+        run: |
+          set -e
+          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses >/dev/null 2>&1 || true
+
+      - name: Install required SDK packages
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDKM="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          # Try to detect compileSdk/build-tools, fallback to 34 / 34.0.0
+          COMPILE_SDK=$(grep -Rho --include='build.gradle*' -E 'compileSdk(Version)?\s*[=:]\s*[0-9]+' . 2>/dev/null | grep -Eo '[0-9]+' | head -n1 || true)
+          [ -z "$COMPILE_SDK" ] && COMPILE_SDK=34
+          case "$COMPILE_SDK" in
+            35) BUILD_TOOLS="35.0.0" ;;
+            34) BUILD_TOOLS="34.0.0" ;;
+            *)  BUILD_TOOLS="34.0.0" ;;
+          esac
+          echo "Using COMPILE_SDK=$COMPILE_SDK BUILD_TOOLS=$BUILD_TOOLS"
+          "$SDKM" --sdk_root="${ANDROID_SDK_ROOT}" --install "platform-tools"
+          "$SDKM" --sdk_root="${ANDROID_SDK_ROOT}" --install "platforms;android-$COMPILE_SDK"
+          "$SDKM" --sdk_root="${ANDROID_SDK_ROOT}" --install "build-tools;$BUILD_TOOLS"
+
+      - name: Make Gradle wrapper executable (if present)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [[ -f "./gradlew" ]]; then chmod +x ./gradlew; fi
+
+      - name: Build Debug APK (prefer wrapper, fallback)
+        id: build_apk
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [[ -x "./gradlew" ]]; then
+            ./gradlew --no-daemon :app:assembleDebug
+          else
+            echo "no_wrapper" > .no_wrapper
+          fi
+
+      - name: Build via Gradle Action (no wrapper)
+        if: ${{ hashFiles('.no_wrapper') != '' }}
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: 8.4
+          arguments: :app:assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: |
+            app/build/outputs/apk/**/*-debug.apk
+            */build/outputs/apk/**/*-debug.apk
+          if-no-files-found: error
+          retention-days: 14
