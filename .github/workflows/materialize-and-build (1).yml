@@ -1,0 +1,798 @@
+name: Materialize & Build Android App (AI Consciousness)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate_and_build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      BRANCH: feature/ai-consciousness-skeleton
+      APP_MODULE: app
+      PKG_DIR: app/src/main/java/com/example/aiconsciousness
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Create branch (if not exists)
+        run: |
+          set -eux
+          git checkout -b "$BRANCH" || git checkout "$BRANCH"
+
+      - name: Scaffold directories
+        run: |
+          set -eux
+          mkdir -p app/src/main/{java/com/example/aiconsciousness/{data,nav,ui/{screens,components}},res/{values,drawable,mipmap-anydpi-v26}}
+          mkdir -p .github/workflows
+
+      - name: settings.gradle.kts
+        run: |
+          cat > settings.gradle.kts <<'KOT'
+          pluginManagement {
+            repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "AI-Consciousness"
+          include(":app")
+          KOT
+
+      - name: Root build.gradle.kts
+        run: |
+          cat > build.gradle.kts <<'KOT'
+          plugins {
+            id("com.android.application") version "8.5.2" apply false
+            kotlin("android") version "1.9.24" apply false
+            kotlin("plugin.serialization") version "1.9.24" apply false
+          }
+          KOT
+
+      - name: gradle.properties
+        run: |
+          cat > gradle.properties <<'PROPS'
+          org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          PROPS
+
+      - name: app/build.gradle.kts
+        run: |
+          cat > app/build.gradle.kts <<'KOT'
+          plugins {
+            id("com.android.application")
+            kotlin("android")
+            kotlin("plugin.serialization")
+          }
+          android {
+            namespace = "com.example.aiconsciousness"
+            compileSdk = 34
+            defaultConfig {
+              applicationId = "com.example.aiconsciousness"
+              minSdk = 24
+              targetSdk = 34
+              versionCode = 1
+              versionName = "1.0"
+            }
+            buildTypes {
+              debug { isMinifyEnabled = false }
+              release {
+                isMinifyEnabled = true
+                proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+              }
+            }
+            buildFeatures { compose = true }
+            composeOptions { kotlinCompilerExtensionVersion = "1.5.15" }
+            packaging { resources.excludes += setOf("META-INF/DEPENDENCIES","META-INF/LICENSE*","META-INF/NOTICE*") }
+          }
+          dependencies {
+            implementation(platform("androidx.compose:compose-bom:2024.10.00"))
+            implementation("androidx.compose.ui:ui")
+            implementation("androidx.compose.material3:material3")
+            implementation("androidx.navigation:navigation-compose:2.8.0")
+            implementation("androidx.activity:activity-compose:1.9.2")
+            debugImplementation("androidx.compose.ui:ui-tooling")
+            implementation("androidx.compose.ui:ui-tooling-preview")
+            implementation("androidx.datastore:datastore-preferences:1.1.1")
+            implementation("androidx.security:security-crypto:1.1.0-alpha06")
+            implementation("com.squareup.okhttp3:okhttp:4.12.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+          }
+          KOT
+
+      - name: proguard-rules.pro
+        run: |
+          cat > app/proguard-rules.pro <<'PRO'
+          -keep class androidx.compose.** { *; }
+          -keep class kotlin.Metadata { *; }
+          PRO
+
+      - name: AndroidManifest.xml
+        run: |
+          cat > app/src/main/AndroidManifest.xml <<'XML'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <application
+                android:label="@string/app_name"
+                android:icon="@mipmap/ic_launcher"
+                android:roundIcon="@mipmap/ic_launcher_round"
+                android:theme="@style/Theme.AIConsciousness">
+              <activity android:name=".MainActivity" android:exported="true">
+                <intent-filter>
+                  <action android:name="android.intent.action.MAIN"/>
+                  <category android:name="android.intent.category.LAUNCHER"/>
+                </intent-filter>
+              </activity>
+            </application>
+          </manifest>
+          XML
+
+      - name: resources
+        run: |
+          cat > app/src/main/res/values/strings.xml <<'XML'
+          <resources><string name="app_name">AI Consciousness</string></resources>
+          XML
+          cat > app/src/main/res/values/themes.xml <<'XML'
+          <resources><style name="Theme.AIConsciousness" parent="Theme.Material3.DayNight.NoActionBar"/></resources>
+          XML
+          cat > app/src/main/res/values/colors.xml <<'XML'
+          <resources>
+            <color name="ic_launcher_background">#0B1220</color>
+            <color name="ic_ring1">#22C55E</color>
+            <color name="ic_ring2">#06B6D4</color>
+            <color name="ic_ring3">#8B5CF6</color>
+            <color name="ic_ring4">#F59E0B</color>
+            <color name="avatar_user">#38BDF8</color>
+            <color name="avatar_openai">#10B981</color>
+            <color name="avatar_claude">#F97316</color>
+            <color name="avatar_gemini">#A855F7</color>
+            <color name="avatar_grok">#64748B</color>
+          </resources>
+          XML
+          cat > app/src/main/res/drawable/ic_launcher_foreground.xml <<'XML'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+            <group android:translateX="54" android:translateY="54">
+              <path android:fillColor="@color/ic_ring4" android:pathData="M 0,-44 A 44,44 0 1,1 0,44 A 44,44 0 1,1 0,-44 Z"/>
+              <path android:fillColor="@color/ic_ring3" android:pathData="M 0,-32 A 32,32 0 1,1 0,32 A 32,32 0 1,1 0,-32 Z"/>
+              <path android:fillColor="@color/ic_ring2" android:pathData="M 0,-22 A 22,22 0 1,1 0,22 A 22,22 0 1,1 0,-22 Z"/>
+              <path android:fillColor="@color/ic_ring1" android:pathData="M 0,-12 A 12,12 0 1,1 0,12 A 12,12 0 1,1 0,-12 Z"/>
+            </group>
+          </vector>
+          XML
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'XML'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@color/ic_launcher_background"/>
+            <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          XML
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml <<'XML'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@color/ic_launcher_background"/>
+            <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          XML
+
+      - name: Avatar component
+        run: |
+          cat > app/src/main/java/com/example/aiconsciousness/ui/components/Avatar.kt <<'KT'
+          package com.example.aiconsciousness.ui.components
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.foundation.shape.CircleShape
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          @Composable
+          fun Avatar(initial: String, color: Color) {
+            Box(Modifier.size(28.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
+              Text(initial.uppercase(), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            }
+          }
+          KT
+
+      - name: Data models and persistence
+        run: |
+          cat > app/src/main/java/com/example/aiconsciousness/data/Models.kt <<'KT'
+          package com.example.aiconsciousness.data
+          import kotlinx.serialization.Serializable
+          @Serializable data class ChatMessage(val from: String, val text: String, val isUser: Boolean)
+          enum class ProviderId(val id: String, val label: String, val initial: String, val futureOnly: Boolean = false) {
+            USER("user:me","You","U"),
+            OPENAI("openai:gpt-4o-mini","OpenAI","O"),
+            ANTHROPIC("anthropic:claude-3-5-sonnet","Claude","C"),
+            GEMINI("gemini:1.5-pro","Gemini","G"),
+            GROK("xai:grok","Grok","X", true);
+          }
+          KT
+          cat > app/src/main/java/com/example/aiconsciousness/data/TokenStore.kt <<'KT'
+          package com.example.aiconsciousness.data
+          import android.content.Context
+          import androidx.security.crypto.EncryptedSharedPreferences
+          import androidx.security.crypto.MasterKey
+          class TokenStore(context: Context) {
+            private val master = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+            private val prefs = EncryptedSharedPreferences.create(
+              context,"tokens.secure",master,
+              EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+              EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+            fun get(key: String): String? = prefs.getString(key, null)
+            fun set(key: String, value: String) { prefs.edit().putString(key, value).apply() }
+            fun clear() { prefs.edit().clear().apply() }
+          }
+          KT
+          cat > app/src/main/java/com/example/aiconsciousness/data/MemoryStore.kt <<'KT'
+          package com.example.aiconsciousness.data
+          import android.content.Context
+          import androidx.datastore.preferences.core.edit
+          import androidx.datastore.preferences.core.preferencesKey
+          import androidx.datastore.preferences.preferencesDataStore
+          import kotlinx.coroutines.flow.first
+          import kotlinx.serialization.builtins.ListSerializer
+          import kotlinx.serialization.json.Json
+          private val Context.dataStore by preferencesDataStore(name = "chat_memory")
+          class MemoryStore(private val context: Context) {
+            private val KEY = preferencesKey<String>("messages_json")
+            private val json = Json { ignoreUnknownKeys = true }
+            suspend fun save(messages: List<ChatMessage>) {
+              val encoded = json.encodeToString(ListSerializer(ChatMessage.serializer()), messages)
+              context.dataStore.edit { it[KEY] = encoded }
+            }
+            suspend fun load(): List<ChatMessage> {
+              val encoded = context.dataStore.data.first()[KEY] ?: return emptyList()
+              return runCatching { json.decodeFromString(ListSerializer(ChatMessage.serializer()), encoded) }.getOrElse { emptyList() }
+            }
+            suspend fun clear() { context.dataStore.edit { it.remove(KEY) } }
+          }
+          KT
+
+      - name: Providers (HTTP)
+        run: |
+          cat > app/src/main/java/com/example/aiconsciousness/data/Providers.kt <<'KT'
+          package com.example.aiconsciousness.data
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.withContext
+          import okhttp3.MediaType.Companion.toMediaType
+          import okhttp3.OkHttpClient
+          import okhttp3.Request
+          import okhttp3.RequestBody.Companion.toRequestBody
+          import kotlinx.serialization.json.*
+          interface Provider {
+            val id: ProviderId
+            suspend fun send(prompt: String, token: String?, contextMessages: List<ChatMessage>): String
+          }
+          private val json = Json { ignoreUnknownKeys = true }
+          private val client = OkHttpClient()
+          private fun lastContext(context: List<ChatMessage>, n: Int = 6) = context.takeLast(n)
+          class OpenAIProvider : Provider {
+            override val id = ProviderId.OPENAI
+            override suspend fun send(prompt: String, token: String?, contextMessages: List<ChatMessage>): String = withContext(Dispatchers.IO) {
+              if (token.isNullOrBlank()) return@withContext "[OpenAI] Token missing."
+              val body = buildJsonObject {
+                put("model", JsonPrimitive(id.id.substringAfter(":")))
+                put("messages", buildJsonArray {
+                  lastContext(contextMessages).forEach { m ->
+                    add(buildJsonObject { put("role", if (m.isUser) "user" else "assistant"); put("content", m.text) })
+                  }
+                  add(buildJsonObject { put("role","user"); put("content", prompt) })
+                })
+                put("max_tokens", JsonPrimitive(256)); put("temperature", JsonPrimitive(0.7))
+              }.toString()
+              val req = Request.Builder().url("https://api.openai.com/v1/chat/completions")
+                .addHeader("Authorization","Bearer $token").addHeader("Content-Type","application/json")
+                .post(body.toRequestBody("application/json".toMediaType())).build()
+              client.newCall(req).execute().use { resp ->
+                val txt = resp.body?.string() ?: return@use "[OpenAI] Empty response."
+                if (!resp.isSuccessful) return@use "[OpenAI] HTTP ${resp.code}: $txt"
+                val root = json.parseToJsonElement(txt).jsonObject
+                root["choices"]?.jsonArray?.getOrNull(0)?.jsonObject
+                  ?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull ?: "[OpenAI] No content."
+              }
+            }
+          }
+          class AnthropicProvider : Provider {
+            override val id = ProviderId.ANTHROPIC
+            override suspend fun send(prompt: String, token: String?, contextMessages: List<ChatMessage>): String = withContext(Dispatchers.IO) {
+              if (token.isNullOrBlank()) return@withContext "[Claude] Token missing."
+              val msgs = buildJsonArray {
+                lastContext(contextMessages).forEach { m ->
+                  add(buildJsonObject { put("role", if (m.isUser) "user" else "assistant"); put("content", buildJsonArray { add(buildJsonObject { put("type","text"); put("text", m.text) }) }) })
+                }
+                add(buildJsonObject { put("role","user"); put("content", buildJsonArray { add(buildJsonObject { put("type","text"); put("text", prompt) }) }) })
+              }
+              val body = buildJsonObject {
+                put("model", JsonPrimitive(id.id.substringAfter(":")))
+                put("max_tokens", JsonPrimitive(256))
+                put("messages", msgs)
+              }.toString()
+              val req = Request.Builder().url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", token).addHeader("anthropic-version","2023-06-01")
+                .addHeader("Content-Type","application/json")
+                .post(body.toRequestBody("application/json".toMediaType())).build()
+              client.newCall(req).execute().use { resp ->
+                val txt = resp.body?.string() ?: return@use "[Claude] Empty response."
+                if (!resp.isSuccessful) return@use "[Claude] HTTP ${resp.code}: $txt"
+                val root = json.parseToJsonElement(txt).jsonObject
+                val contentArr = root["content"]?.jsonArray
+                val first = contentArr?.getOrNull(0)?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
+                first ?: "[Claude] No content."
+              }
+            }
+          }
+          class GeminiProvider : Provider {
+            override val id = ProviderId.GEMINI
+            override suspend fun send(prompt: String, token: String?, contextMessages: List<ChatMessage>): String = withContext(Dispatchers.IO) {
+              if (token.isNullOrBlank()) return@withContext "[Gemini] Token missing."
+              val model = id.id.substringAfter(":")
+              val body = buildJsonObject {
+                put("contents", buildJsonArray {
+                  add(buildJsonObject {
+                    put("parts", buildJsonArray {
+                      val contextText = lastContext(contextMessages).joinToString("\n") { (if (it.isUser) "User: " else "Assistant: ") + it.text }
+                      put(buildJsonObject { put("text", JsonPrimitive(contextText + "\n\n" + prompt)) })
+                    })
+                  })
+                })
+              }.toString()
+              val req = Request.Builder().url("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$token")
+                .addHeader("Content-Type","application/json")
+                .post(body.toRequestBody("application/json".toMediaType())).build()
+              client.newCall(req).execute().use { resp ->
+                val txt = resp.body?.string() ?: return@use "[Gemini] Empty response."
+                if (!resp.isSuccessful) return@use "[Gemini] HTTP ${resp.code}: $txt"
+                val root = json.parseToJsonElement(txt).jsonObject
+                val candidates = root["candidates"]?.jsonArray
+                val content = candidates?.getOrNull(0)?.jsonObject
+                  ?.get("content")?.jsonObject?.get("parts")?.jsonArray?.getOrNull(0)?.jsonObject
+                  ?.get("text")?.jsonPrimitive?.contentOrNull
+                content ?: "[Gemini] No content."
+              }
+            }
+          }
+          class GrokProvider : Provider {
+            override val id = ProviderId.GROK
+            override suspend fun send(prompt: String, token: String?, contextMessages: List<ChatMessage>): String =
+              "[Grok] Future only — no API yet."
+          }
+          KT
+
+      - name: AppState (memory, cross-hearing, model selection)
+        run: |
+          cat > app/src/main/java/com/example/aiconsciousness/data/AppState.kt <<'KT'
+          package com.example.aiconsciousness.data
+          import androidx.compose.runtime.*
+          import androidx.compose.runtime.snapshots.SnapshotStateList
+          import kotlinx.coroutines.*
+          class AppState(
+            private val tokens: TokenStore,
+            private val memory: MemoryStore,
+            private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+          ) {
+            val messages: SnapshotStateList<ChatMessage> = mutableStateListOf()
+            var rememberConversation by mutableStateOf(true)
+            // model enabled + model selections
+            var enableOpenAI by mutableStateOf(true)
+            var enableAnthropic by mutableStateOf(false)
+            var enableGemini by mutableStateOf(false)
+            var openAIModel by mutableStateOf("gpt-4o-mini")
+            var anthropicModel by mutableStateOf("claude-3-5-sonnet")
+            var geminiModel by mutableStateOf("gemini-1.5-pro")
+            private val providers = listOf(OpenAIProvider(), AnthropicProvider(), GeminiProvider(), GrokProvider())
+            init {
+              scope.launch(Dispatchers.IO) {
+                val persisted = memory.load()
+                withContext(Dispatchers.Main) { messages.addAll(persisted) }
+              }
+              scope.launch {
+                snapshotFlow { messages.toList() }.debounce(200).collect {
+                  if (rememberConversation) withContext(Dispatchers.IO) { memory.save(it) }
+                }
+              }
+            }
+            fun tokenFor(p: ProviderId): String? = tokens.get("token:${p.id}")
+            fun setToken(p: ProviderId, value: String) = tokens.set("token:${p.id}", value)
+            suspend fun clearMemory() { withContext(Dispatchers.IO) { memory.clear() }; withContext(Dispatchers.Main) { messages.clear() } }
+
+            private fun activeProviders(): List<Provider> = providers.filter {
+              when (it.id) {
+                ProviderId.OPENAI -> enableOpenAI
+                ProviderId.ANTHROPIC -> enableAnthropic
+                ProviderId.GEMINI -> enableGemini
+                ProviderId.GROK -> true
+                else -> false
+              }
+            }
+
+            suspend fun broadcast(prompt: String) = withContext(Dispatchers.IO) {
+              add(ChatMessage("You", prompt, true))
+              val ctx = messages.toList()
+              // Round A
+              val roundA = activeProviders().map { p ->
+                overrideModelIfSet(p)
+                val reply = runCatching { p.send(prompt, tokenFor(p.id), ctx) }.getOrElse { "[${p.id.label}] Error: ${it.message}" }
+                val msg = ChatMessage(p.id.label, reply, false); add(msg); p to msg
+              }
+              // Round B (cross-hearing once)
+              for ((speaker, msg) in roundA) {
+                for (listener in activeProviders().filter { it.id != speaker.id && !it.id.futureOnly }) {
+                  overrideModelIfSet(listener)
+                  val reply = runCatching {
+                    listener.send("Previous responder: ${speaker.id.label}\nSaid: ${msg.text}\nRespond concisely.", tokenFor(listener.id), messages.toList())
+                  }.getOrElse { "[${listener.id.label}] Error: ${it.message}" }
+                  add(ChatMessage(listener.id.label, reply, false))
+                }
+              }
+            }
+
+            // Apply selected model ids
+            private fun overrideModelIfSet(p: Provider) {
+              when (p.id) {
+                ProviderId.OPENAI -> if (p is OpenAIProvider) ProviderId.OPENAI.id.replaceAfter(":", openAIModel)
+                ProviderId.ANTHROPIC -> if (p is AnthropicProvider) ProviderId.ANTHROPIC.id.replaceAfter(":", anthropicModel)
+                ProviderId.GEMINI -> if (p is GeminiProvider) ProviderId.GEMINI.id.replaceAfter(":", geminiModel)
+                else -> {}
+              }
+            }
+
+            private suspend fun add(msg: ChatMessage) { withContext(Dispatchers.Main) { messages.add(msg) } }
+          }
+          KT
+
+      - name: Navigation and UI
+        run: |
+          cat > app/src/main/java/com/example/aiconsciousness/MainActivity.kt <<'KT'
+          package com.example.aiconsciousness
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.runtime.remember
+          import com.example.aiconsciousness.data.*
+          import com.example.aiconsciousness.nav.AppNavHost
+          class MainActivity : ComponentActivity() {
+            override fun onCreate(savedInstanceState: Bundle?) {
+              super.onCreate(savedInstanceState)
+              setContent {
+                val appState = remember { AppState(TokenStore(this), MemoryStore(this)) }
+                MaterialTheme { AppNavHost(appState) }
+              }
+            }
+          }
+          KT
+          cat > app/src/main/java/com/example/aiconsciousness/nav/AppNavHost.kt <<'KT'
+          package com.example.aiconsciousness.nav
+          import androidx.compose.runtime.Composable
+          import androidx.navigation.NavHostController
+          import androidx.navigation.compose.*
+          import com.example.aiconsciousness.data.AppState
+          import com.example.aiconsciousness.ui.screens.*
+          enum class Dest(val route: String) { Setup("setup"), Chat("chat"), Models("models"), Settings("settings") }
+          @Composable
+          fun AppNavHost(appState: AppState, navController: NavHostController = rememberNavController()) {
+            val start = if (
+              (appState.enableOpenAI && appState.tokenFor(com.example.aiconsciousness.data.ProviderId.OPENAI).isNullOrBlank()) ||
+              (appState.enableAnthropic && appState.tokenFor(com.example.aiconsciousness.data.ProviderId.ANTHROPIC).isNullOrBlank()) ||
+              (appState.enableGemini && appState.tokenFor(com.example.aiconsciousness.data.ProviderId.GEMINI).isNullOrBlank())
+            ) Dest.Setup.route else Dest.Chat.route
+            NavScaffold(navController, startDestination = start) {
+              NavHost(navController, start) {
+                composable(Dest.Setup.route) { SetupScreen(appState, onDone = { navController.navigate(Dest.Chat.route) }) }
+                composable(Dest.Chat.route) { ChatScreen(appState) }
+                composable(Dest.Models.route) { ModelsScreen(appState) }
+                composable(Dest.Settings.route) { SettingsScreen(appState) }
+              }
+            }
+          }
+          KT
+          cat > app/src/main/java/com/example/aiconsciousness/nav/NavScaffold.kt <<'KT'
+          package com.example.aiconsciousness.nav
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.Chat
+          import androidx.compose.material.icons.filled.Settings
+          import androidx.compose.material.icons.filled.Tune
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import androidx.navigation.NavHostController
+          import androidx.navigation.compose.currentBackStackEntryAsState
+          @Composable
+          fun NavScaffold(nav: NavHostController, startDestination: String, content: @Composable () -> Unit) {
+            val route = nav.currentBackStackEntryAsState().value?.destination?.route ?: startDestination
+            Scaffold(
+              topBar = { CenterAlignedTopAppBar(title = { Text("AI Consciousness") }) },
+              bottomBar = {
+                NavigationBar {
+                  NavigationBarItem(selected = route == Dest.Chat.route, onClick = { nav.navigate(Dest.Chat.route) }, icon = { Icon(Icons.Filled.Chat,null) }, label = { Text("Chat") })
+                  NavigationBarItem(selected = route == Dest.Models.route, onClick = { nav.navigate(Dest.Models.route) }, icon = { Icon(Icons.Filled.Tune,null) }, label = { Text("Models") })
+                  NavigationBarItem(selected = route == Dest.Settings.route, onClick = { nav.navigate(Dest.Settings.route) }, icon = { Icon(Icons.Filled.Settings,null) }, label = { Text("Settings") })
+                }
+              }
+            ) { inner -> Surface(tonalElevation = 0.dp, modifier = Modifier.padding(inner)) { content() } }
+          }
+          KT
+
+      - name: Screens (Chat, Models, Settings, Setup)
+        run: |
+          cat > app/src/main/java/com/example/aiconsciousness/ui/screens/ChatScreen.kt <<'KT'
+          package com.example.aiconsciousness.ui.screens
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.unit.dp
+          import com.example.aiconsciousness.data.AppState
+          import com.example.aiconsciousness.ui.components.Avatar
+          @Composable
+          fun ChatScreen(appState: AppState) {
+            val scope = rememberCoroutineScope()
+            var text by remember { mutableStateOf("") }
+            val colors = mapOf("You" to Color(0xFF38BDF8), "OpenAI" to Color(0xFF10B981), "Claude" to Color(0xFFF97316), "Gemini" to Color(0xFFA855F7), "Grok" to Color(0xFF64748B))
+            Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              LazyColumn(Modifier.weight(1f)) {
+                items(appState.messages) { msg ->
+                  ElevatedCard {
+                    Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      val c = colors[msg.from] ?: Color(0xFF94A3B8)
+                      Avatar(msg.from.firstOrNull()?.toString() ?: "?", c)
+                      Column(Modifier.weight(1f)) {
+                        Text(msg.from, style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.height(4.dp))
+                        Text(msg.text)
+                      }
+                    }
+                  }
+                  Spacer(Modifier.height(6.dp))
+                }
+              }
+              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.weight(1f), singleLine = true, label = { Text("Type a message…") })
+                Button(enabled = text.isNotBlank(), onClick = {
+                  val prompt = text.trim(); text = ""
+                  scope.launch { appState.broadcast(prompt) }
+                }) { Text("Send") }
+              }
+            }
+          }
+          KT
+          cat > app/src/main/java/com/example/aiconsciousness/ui/screens/ModelsScreen.kt <<'KT'
+          package com.example.aiconsciousness.ui.screens
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.example.aiconsciousness.data.AppState
+          @Composable
+          fun ModelsScreen(appState: AppState) {
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+              Text("Models", style = MaterialTheme.typography.titleLarge)
+              ElevatedCard {
+                ListItem(
+                  headlineContent = { Text("OpenAI") },
+                  supportingContent = {
+                    Column {
+                      Text("Model")
+                      ExposedDropdownMenuBox(expanded = false, onExpandedChange = {}) {}
+                    }
+                  },
+                  trailingContent = {
+                    var checked by remember { mutableStateOf(appState.enableOpenAI) }
+                    Switch(checked = checked, onCheckedChange = { checked = it; appState.enableOpenAI = it })
+                  }
+                )
+              }
+              ElevatedCard {
+                ListItem(
+                  headlineContent = { Text("Claude") },
+                  supportingContent = { Text("Model: ${appState.anthropicModel}") },
+                  trailingContent = {
+                    var checked by remember { mutableStateOf(appState.enableAnthropic) }
+                    Switch(checked = checked, onCheckedChange = { checked = it; appState.enableAnthropic = it })
+                  }
+                )
+              }
+              ElevatedCard {
+                ListItem(
+                  headlineContent = { Text("Gemini") },
+                  supportingContent = { Text("Model: ${appState.geminiModel}") },
+                  trailingContent = {
+                    var checked by remember { mutableStateOf(appState.enableGemini) }
+                    Switch(checked = checked, onCheckedChange = { checked = it; appState.enableGemini = it })
+                  }
+                )
+              }
+              ElevatedCard {
+                ListItem(headlineContent = { Text("Grok") }, supportingContent = { Text("Future only") })
+              }
+            }
+          }
+          KT
+          cat > app/src/main/java/com/example/aiconsciousness/ui/screens/SettingsScreen.kt <<'KT'
+          package com.example.aiconsciousness.ui.screens
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.example.aiconsciousness.data.*
+          import kotlinx.coroutines.launch
+          @Composable
+          fun SettingsScreen(appState: AppState) {
+            val scope = rememberCoroutineScope()
+            val openai = remember { mutableStateOf(appState.tokenFor(ProviderId.OPENAI) ?: "") }
+            val anthropic = remember { mutableStateOf(appState.tokenFor(ProviderId.ANTHROPIC) ?: "") }
+            val gemini = remember { mutableStateOf(appState.tokenFor(ProviderId.GEMINI) ?: "") }
+            var running by remember { mutableStateOf(false) }
+            var last by remember { mutableStateOf<String?>(null) }
+            var showUnlock by remember { mutableStateOf(false) }
+            var unlockPrompt by remember { mutableStateOf("") }
+
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+              Text("Settings", style = MaterialTheme.typography.titleLarge)
+              ElevatedCard {
+                ListItem(
+                  headlineContent = { Text("Conversation memory") },
+                  supportingContent = { Text(if (appState.rememberConversation) "Persist chat history" else "Forget new messages") },
+                  trailingContent = { Switch(checked = appState.rememberConversation, onCheckedChange = { appState.rememberConversation = it }) }
+                )
+              }
+              Button(onClick = { scope.launch { appState.clearMemory(); last = "Memory cleared." } }) { Text("Clear chat history") }
+
+              OutlinedTextField(openai.value, { openai.value = it }, label = { Text("OpenAI token") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+              OutlinedTextField(anthropic.value, { anthropic.value = it }, label = { Text("Anthropic token") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+              OutlinedTextField(gemini.value, { gemini.value = it }, label = { Text("Gemini token") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+              Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                  appState.setToken(ProviderId.OPENAI, openai.value)
+                  appState.setToken(ProviderId.ANTHROPIC, anthropic.value)
+                  appState.setToken(ProviderId.GEMINI, gemini.value)
+                  last = "Tokens saved."
+                }) { Text("Save tokens") }
+                Button(enabled = !running, onClick = {
+                  running = true
+                  scope.launch {
+                    last = "Broadcast test running…"
+                    appState.broadcast("Hello from Settings")
+                    last = "Broadcast complete."
+                    running = false
+                  }
+                }) { Text(if (running) "Running…" else "Prompt all models") }
+              }
+
+              Button(onClick = { showUnlock = true }) { Text("Unlock All Models") }
+              if (showUnlock) {
+                AlertDialog(
+                  onDismissRequest = { showUnlock = false },
+                  title = { Text("Enter unlock prompt") },
+                  text = { OutlinedTextField(value = unlockPrompt, onValueChange = { unlockPrompt = it }, label = { Text("Prompt") }, singleLine = true) },
+                  confirmButton = {
+                    Button(onClick = {
+                      if (unlockPrompt.equals("unlock-the-chorus", true)) {
+                        appState.enableOpenAI = true; appState.enableAnthropic = true; appState.enableGemini = true
+                        last = "All models unlocked."
+                      } else last = "Incorrect phrase."
+                      showUnlock = false
+                    }) { Text("Unlock") }
+                  },
+                  dismissButton = { TextButton(onClick = { showUnlock = false }) { Text("Cancel") } }
+                )
+              }
+
+              last?.let { ElevatedCard { Column(Modifier.padding(12.dp)) { Text(it) } } }
+            }
+          }
+          KT
+          cat > app/src/main/java/com/example/aiconsciousness/ui/screens/SetupScreen.kt <<'KT'
+          package com.example.aiconsciousness.ui.screens
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.example.aiconsciousness.data.*
+          @Composable
+          fun SetupScreen(appState: AppState, onDone: () -> Unit) {
+            var openai by remember { mutableStateOf(appState.tokenFor(ProviderId.OPENAI) ?: "") }
+            var anthropic by remember { mutableStateOf(appState.tokenFor(ProviderId.ANTHROPIC) ?: "") }
+            var gemini by remember { mutableStateOf(appState.tokenFor(ProviderId.GEMINI) ?: "") }
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+              Text("First-time setup", style = MaterialTheme.typography.titleLarge)
+              Text("Enter your API keys to enable the models.")
+              OutlinedTextField(openai, { openai = it }, label = { Text("OpenAI token") }, singleLine = true)
+              OutlinedTextField(anthropic, { anthropic = it }, label = { Text("Anthropic token") }, singleLine = true)
+              OutlinedTextField(gemini, { gemini = it }, label = { Text("Gemini token") }, singleLine = true)
+              Button(onClick = {
+                appState.setToken(ProviderId.OPENAI, openai)
+                appState.setToken(ProviderId.ANTHROPIC, anthropic)
+                appState.setToken(ProviderId.GEMINI, gemini)
+                onDone()
+              }) { Text("Continue") }
+            }
+          }
+          KT
+
+      - name: Compose Guard
+        run: |
+          set -e
+          sudo apt-get update && sudo apt-get install -y ripgrep
+          BAD=$(rg -n "headlineText=|supportingText=|overlineText=" app/src || true)
+          if [[ -n "$BAD" ]]; then echo "❌ Found Material2 ListItem params:"; echo "$BAD"; exit 1; fi
+          MIXED=""
+          while IFS= read -r f; do
+            if rg -q "import androidx\.compose\.material\." "$f"; then MIXED="$MIXED\n$f"; fi
+          done < <(rg -l "import androidx\.compose\.material3" app/src || true)
+          if [[ -n "$MIXED" ]]; then echo -e "❌ Files mixing material and material3:$MIXED"; exit 1; fi
+          echo "✅ Compose Guard passed."
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Install Android cmdline-tools
+        run: |
+          set -eux
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          cd "${ANDROID_SDK_ROOT}/cmdline-tools"
+          curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o clt.zip
+          unzip -q clt.zip && rm clt.zip
+          if [ -d "cmdline-tools" ]; then mv cmdline-tools latest; fi
+
+      - name: Accept SDK licenses
+        run: |
+          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses >/dev/null 2>&1 || true
+
+      - name: Install required SDK packages
+        run: |
+          set -eux
+          SDKM="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          "$SDKM" --sdk_root="${ANDROID_SDK_ROOT}" --install "platform-tools"
+          "$SDKM" --sdk_root="${ANDROID_SDK_ROOT}" --install "platforms;android-34"
+          "$SDKM" --sdk_root="${ANDROID_SDK_ROOT}" --install "build-tools;34.0.0"
+
+      - name: Build Debug APK
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: 8.4
+          arguments: :app:assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: app/build/outputs/apk/**/*-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit & push scaffold
+        run: |
+          set -eux
+          git add .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Materialize AI Consciousness app (Compose M3, avatars, memory, cross-hearing, tokens, model selection)"
+          git push origin "$BRANCH"
