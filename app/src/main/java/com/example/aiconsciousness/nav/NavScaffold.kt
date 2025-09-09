@@ -1,37 +1,52 @@
-
 package com.example.aiconsciousness.nav
 
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NavScaffold(navController: NavHostController, content: @Composable () -> Unit) {
-  val items = Dest.values()
+fun NavScaffold(nav: NavHostController, content: @Composable () -> Unit) {
+  val route = nav.currentBackStackEntryAsState().value?.destination?.route
   Scaffold(
-    topBar = { TopAppBar(title = { Text("AI Consciousness") }) },
+    topBar = { CenterAlignedTopAppBar(title = { Text("AI Consciousness") }) },
     bottomBar = {
-      NavigationBar {
-        val backStack by navController.currentBackStackEntryAsState()
-        val current = backStack?.destination?.route
-        items.forEach { dest ->
+      if (route != Dest.Setup.route) {
+        NavigationBar {
           NavigationBarItem(
-            selected = current == dest.route,
-            onClick = {
-              navController.navigate(dest.route) {
-                popUpTo(navController.graph.startDestinationId) { saveState = true }
-                launchSingleTop = true; restoreState = true
-              }
-            },
-            icon = { Icon(dest.icon, contentDescription = dest.label) },
-            label = { Text(dest.label) }
+            selected = route == Dest.Chat.route,
+            onClick = { nav.navigate(Dest.Chat.route) },
+            icon = { Icon(Icons.Filled.Chat, contentDescription = null) },
+            label = { Text("Chat") }
+          )
+          NavigationBarItem(
+            selected = route == Dest.Models.route,
+            onClick = { nav.navigate(Dest.Models.route) },
+            icon = { Icon(Icons.Filled.Tune, contentDescription = null) },
+            label = { Text("Models") }
+          )
+          NavigationBarItem(
+            selected = route == Dest.Settings.route,
+            onClick = { nav.navigate(Dest.Settings.route) },
+            icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+            label = { Text("Settings") }
           )
         }
       }
     }
-  ) { inner -> Surface(Modifier.padding(inner)) { content() } }
+  ) { inner ->
+    Surface(tonalElevation = 0.dp, modifier = Modifier.padding(inner)) { content() }
+  }
 }
