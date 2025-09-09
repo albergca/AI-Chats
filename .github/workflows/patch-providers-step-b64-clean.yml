@@ -16,14 +16,12 @@ jobs:
           fetch-depth: 0
 
       - name: Write Providers.kt using Python base64 decode
-        shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
 import base64, os
 
-b64_content = """cGFja2FnZSBjb20uZXhhbXBsZS5haWNvbnNjaW91c25lc3MuZGF0YQoKaW1wb3J0IG9yZy5qc29uLkpTT05BcnJheQppbXBvcnQgb3JnLmpzb24uSlNPTk9iamVjdAppbXBvcnQgamF2YS5pby5CdWZmZXJlZFJlYWRlcgppbXBvcnQgamF2YS5uZXQuSHR0cFVSTENvbm5lY3Rpb24KaW1wb3J0IGphdmEubmV0LlVSTAoKZW51bSBjbGFzcyBQcm92aWRlcklkKHZhbCBsYWJlbDogU3RyaW5nKSB7IFVTRVIoIllvdSIpLCBPUEVOQUkoIk9wZW5BSSIpLCBBTlRIUk9QSUMoIkNsYXVkZSIpLCBHRU1JTkkoIkdlbWluaSIpLCBHUk9LKCJHcm9rIikgfQoKZGF0YSBjbGFzcyBDaGF0TWVzc2FnZSh2YWwgZnJvbTogU3RyaW5nLCB2YWwgdGV4dDogU3RyaW5nLCB2YWwgaXNVc2VyOiBCb29sZWFuKQoKb2JqZWN0IFByb3ZpZGVycyB7...
-"""
+b64_content = """cGFja2FnZSBjb20uZXhhbXBsZS5haWNvbnNjaW91c25lc3MuZGF0YQoK...<rest of base64>..."""
 
 path = "app/src/main/java/com/example/aiconsciousness/data/Providers.kt"
 os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -33,7 +31,6 @@ print("Wrote", path)
 PY
 
       - name: Commit & push Providers.kt
-        shell: bash
         run: |
           set -eux
           git config user.name "github-actions[bot]"
