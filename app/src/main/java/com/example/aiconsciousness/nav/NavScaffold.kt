@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -13,33 +14,35 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NavScaffold(nav: NavHostController, content: @Composable () -> Unit) {
   val route = nav.currentBackStackEntryAsState().value?.destination?.route
   Scaffold(
     topBar = { CenterAlignedTopAppBar(title = { Text("AI Consciousness") }) },
     bottomBar = {
-      if (route != Dest.Setup.route) {
+      if (route != "setup") {
         NavigationBar {
           NavigationBarItem(
-            selected = route == Dest.Chat.route,
-            onClick = { nav.navigate(Dest.Chat.route) },
+            selected = route == "chat",
+            onClick = { nav.navigate("chat") },
             icon = { Icon(Icons.Filled.Chat, contentDescription = null) },
             label = { Text("Chat") }
           )
           NavigationBarItem(
-            selected = route == Dest.Models.route,
-            onClick = { nav.navigate(Dest.Models.route) },
+            selected = route == "models",
+            onClick = { nav.navigate("models") },
             icon = { Icon(Icons.Filled.Tune, contentDescription = null) },
             label = { Text("Models") }
           )
           NavigationBarItem(
-            selected = route == Dest.Settings.route,
-            onClick = { nav.navigate(Dest.Settings.route) },
+            selected = route == "settings",
+            onClick = { nav.navigate("settings") },
             icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
             label = { Text("Settings") }
           )
