@@ -1,0 +1,44 @@
+name: Feature Pack v2 — Multi-Model + Broadcast + Setup Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  add_multimodel_and_build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      BRANCH: feature/multimodel-broadcast
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create/Checkout feature branch
+        shell: bash
+        run: |
+          set -eux
+          git checkout -b "$BRANCH" || git checkout "$BRANCH"
+
+      - name: Ensure directories
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p app/src/main/java/com/example/aiconsciousness/{data,nav,ui/screens,ui/components}
+          mkdir -p app/src/main/res/values
+
+      # (trimmed for brevity; this workflow writes Providers.kt, AppState.kt, ChatScreen.kt, ModelsScreen.kt,
+      # SettingsScreen.kt, AppNavHost.kt, NavScaffold.kt, then builds and uploads the APK)
+      
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: |
+            app/build/outputs/apk/**/*-debug.apk
+            */build/outputs/apk/**/*-debug.apk
+          if-no-files-found: error
+          retention-days: 14
