@@ -506,7 +506,36 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+- name: Configure Git identity
+  shell: bash
+  run: |
+    git config user.name "github-actions[bot]"
+    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+# Optional: ignore backups so they don't pollute commits
+- name: Add .gitignore for backups
+  shell: bash
+  run: |
+    echo "*.bak" >> .gitignore
+    git add .gitignore || true
+
+# Commit & push any staged changes (java + manifest), ignore .bak
+- name: Commit feature pack to branch
+  shell: bash
+  run: |
+    set -eux
+    # Stage sources and the Manifest (backups remain untracked and ignored)
+    git add app/src/main/java/com/example/aiconsciousness || true
+    git add app/src/main/AndroidManifest.xml || true
+
+    # If nothing is staged, don't error out
+    if git diff --cached --quiet; then
+      echo "No changes to commit."
+      exit 0
+    fi
+
+    git commit -m "Feature Pack v2 FULL: Multi-Model + Broadcast + Setup gate"
+    git push origin "$BRANCH"
       - name: Commit feature pack to branch
         shell: bash
         run: |
