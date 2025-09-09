@@ -501,7 +501,24 @@ jobs:
             }
           }
           KT
+      - name: Configure Git identity
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Commit feature pack to branch
+        shell: bash
+        run: |
+          set -eux
+          # stage only if there are changes
+          if ! git diff --quiet -- app/src/main/java/com/example/aiconsciousness; then
+            git add app/src/main/java/com/example/aiconsciousness
+            git commit -m "Feature Pack v2 FULL: Multi-Model + Broadcast + Setup gate"
+            git push origin "$BRANCH"
+          else
+            echo "No changes to commit."
+          fi
       - name: Commit feature pack to branch
         shell: bash
         run: |
