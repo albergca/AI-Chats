@@ -51,7 +51,7 @@ jobs:
           if [[ ! -f "$M" ]]; then
             mkdir -p "$(dirname "$M")"
             cat > "$M" <<'XML'
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.aiconsciousness">
+      <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.aiconsciousness">
               <uses-permission android:name="android.permission.INTERNET"/>
               <application android:label="AI Consciousness" android:allowBackup="true" android:supportsRtl="true">
                 <activity android:name=".MainActivity">
