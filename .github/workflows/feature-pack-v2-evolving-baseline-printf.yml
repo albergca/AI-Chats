@@ -26,7 +26,6 @@ jobs:
             | sed 's|^\./||; s|/build\.gradle.*$||' | sort | head -n1 || true)
           if [[ -z "${APP_MODULE}" ]]; then
             if [[ -d app ]]; then APP_MODULE="app"; else APP_MODULE="."; fi
-          fi
           echo "app_module=${APP_MODULE}" >> "$GITHUB_OUTPUT"
           echo "Detected module: ${APP_MODULE}"
 
