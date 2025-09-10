@@ -4,6 +4,13 @@ on:
   workflow_dispatch:
 
 jobs:
+  
+  - name: Debug settings.gradle.kts
+  run: |
+    echo "Listing project root:"
+    ls -la .
+    echo "Content of settings.gradle.kts:"
+    cat settings.gradle.kts || echo "File not found"
   build:
     runs-on: ubuntu-latest
     steps:
