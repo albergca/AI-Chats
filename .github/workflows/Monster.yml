@@ -1,0 +1,142 @@
+name: Monster — All Features + Fixes + Debug APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build_monster:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      BRANCH: feature/monster-evolved
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create/checkout branch
+        run: |
+          set -eux
+          git checkout -b "$BRANCH" || git checkout "$BRANCH"
+
+      # Guard: ban M2 widgets, allow icons
+      - name: Compose Guard
+        run: |
+          set -e
+          echo "Checking for M2 ListItem params…"
+          BAD_LISTITEM=$(rg -n "headlineText=|supportingText=|overlineText=" app/src || true)
+          if [[ -n "$BAD_LISTITEM" ]]; then
+            echo "❌ Found M2 ListItem params:"
+            echo "$BAD_LISTITEM"
+            exit 1
+          fi
+
+          echo "Checking for mixed material/material3 imports (excluding icons)…"
+          MIXED=""
+          while IFS= read -r file; do
+            if rg -q "import androidx\\.compose\\.material3" "$file"; then
+              if rg -q "import androidx\\.compose\\.material\\.(?!icons)" "$file"; then
+                MIXED="$MIXED\n$file"
+              fi
+            fi
+          done < <(rg -l "import androidx\\.compose\\.material3" app/src || true)
+
+          if [[ -n "$MIXED" ]]; then
+            echo -e "❌ Files mixing material and material3 widgets:$MIXED"
+            exit 1
+          fi
+
+          echo "✅ Compose Guard passed."
+
+      # Write AndroidManifest with fixes
+      - name: Write AndroidManifest.xml
+        shell: bash
+        run: |
+          set -euo pipefail
+          M="app/src/main/AndroidManifest.xml"
+          mkdir -p "$(dirname "$M")"
+          cat > "$M" <<'XML'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <application
+        android:label="AI Consciousness"
+        android:allowBackup="true"
+        android:supportsRtl="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+XML
+          echo "✅ Manifest fixed"
+
+      # Debug print settings.gradle.kts
+      - name: Debug settings.gradle.kts
+        run: |
+          echo "===== settings.gradle.kts ====="
+          cat settings.gradle.kts || true
+          echo "==============================="
+
+      # Set up JDK
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      # Install Android cmdline-tools
+      - name: Install Android cmdline-tools
+        run: |
+          set -eux
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          cd "${ANDROID_SDK_ROOT}/cmdline-tools"
+          curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          rm cmdline-tools.zip
+          if [ -d "cmdline-tools" ]; then mv cmdline-tools latest; fi
+
+      - name: Accept SDK licenses
+        run: yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+      - name: Install required SDK packages
+        run: |
+          set -eux
+          SDKM="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          "$SDKM" --install "platform-tools"
+          "$SDKM" --install "platforms;android-34"
+          "$SDKM" --install "build-tools;34.0.0"
+
+      # Build Debug APK
+      - name: Build Debug APK
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: 8.4
+          arguments: assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: app/build/outputs/apk/debug/*-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit & push fixes
+        run: |
+          set -eux
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/AndroidManifest.xml || true
+          git commit -m "Monster: guard fixes + manifest" || true
+          git push origin "$BRANCH"
